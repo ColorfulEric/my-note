@@ -251,5 +251,316 @@ RX/TX工作时，相应的LED灯会亮起。
 
 *注，上图数据可供参考。*
 
-### 控制机械臂转速
+### 开发机械臂程序123
+
+*代码展示*
+
+```cpp
+#include<Servo.h>//导入函数库
+
+Servo base,fArm,rArm,claw;//创建四个对象（底座、小臂、大臂、钳子）
+
+int basePos = 90;//设定舵机初始角度
+int rArmPos = 90;
+int fArmPos = 90;
+int clawPos = 90;
+
+const int baseMin = 0;//设置舵机旋转范围
+const int baseMax = 180;
+const int rArmMin = 45;
+const int rArmMax = 180;
+const int fArmMin = 35;
+const int fArmMax = 120;
+const int clawMin = 25;
+const int clawMax = 100;
+
+int DSD = 15;//default servo delay默认电机运动延迟时间
+
+bool mode;//1，指令模式；0，手柄模式
+int moveStep = 3;//没按下手柄按键，舵机移动量
+
+void setup()
+{
+  base.attach(11);//连接舵机与引脚
+  delay(200);//为初始化提供时间
+  rArm.attach(10);
+  delay(200);
+  fArm.attach(9);
+  delay(200);
+  claw.attach(6);
+  delay(200};
+
+  base.write(90);//初始化舵机方向
+  delay(10);
+  claw.write(90);
+  delay(10);
+  rArm.write(90);
+  delay(90);
+  fArm.write(90);
+  delay(10);
+
+  Serial.begin(9600);//初始化串口监视窗口
+  Serial.println("please imput serial data:");
+}
+
+void loop()
+{
+  if(Serial.available())//监测是否有串口数据输入
+  {
+    char serialCmd = Serial.read()//读取舵机名称
+    if(mode == 1)
+    {
+      armDataCmd(serialCmd);//指令模式
+    }
+    else
+    {
+      armJoyCmd(serialCmd);//手柄模式
+    }
+  }
+}
+
+void armDataCmd(char serialCmd)//判断执行是否合法的函数
+{
+  if(serialCmd == 'w'||serialCmd == 's'||serialCmd == 'a'||serialCmd == 'd'
+    ||serialCmd == '8'||serialCmd == '5'||serialCmd == '4'||serialCmd == '6')
+  {
+    Serial.println("+Warning:Robot in Instruction Mode...");
+    delay(100);
+    while(Serial.available()>0) char wrongCommand = Serial.read();
+    return;
+  }
+
+  if(serialCmd == 'b'||serialCmd == 'c'||serialCmd == 'r'||serialCmd == 'f')//判断舵机是否存在
+  {
+    int servoData = Serial.parseInt();//读取串口数据
+    servoCmd(serialCmd,servoData,DSD);//传递参数（舵机名，目标角度，延迟）
+  }
+  else
+  {
+    switch(serialCmd)
+    {
+      case 'm'://切换手柄模式
+        mode = 0;
+        Serial.println("Command:Switch to Joy-Stick Mode.");
+        break;
+
+      case 'o'://输出舵机状态信息
+        reportStatus();
+        break;
+      case 'i':
+        armIniPos();//重置舵机位置
+        break;
+      case 'p':
+        playDice();
+        break;
+      default://非法命令
+        Serial.println("Unknown Command.");
+    }
+  }
+}
+
+void armJoyCmd(char serialCmd)
+{
+  if(serialCmd == 'b'||serialCmd == 'c'||serialCmd == 'f'||serialCmd == 'r')
+  {
+    Serial.println("+Warning:Robot in Joy-Stick Mode...");
+    delay(100);
+    while(Serial.available()>0) char wrongCommand = Serial.read();
+    return;
+  }
+  int baseJoyPos;
+  int rArmJoyPos;
+  int fArmJoyPos;
+  int clawJoyPos;
+
+  switch(serialCmd)
+  {
+    case 'a'://Base向左
+      Serial.println("Recive Command:Base Turn Right");
+      baseJoyPos = base.read() - moveStep;
+      servoCmd('b',baseJoyPos,DSD);
+      break;
+
+    case 'd'://Base向右
+      Serial.println("Recive Command:Base Turn Left");
+      baseJoyPos = base.read() + moveStep;
+      servoCmd('b',baseJoyPos,DSD);
+      break;
+
+    case 's'://rArm向下
+      Serial.println("Recive Command:Rear Arm Down");
+      rArmJoyPos = rArm.read() + moveStep;
+      servoCmd('r',rArmJoyPos,DSD);
+      break;
+    
+    case 'w'://rArm向上
+      Serial.println("Recive Command:Rear Arm Up");
+      rArmJoyPos = rArm.read() - moveStep;
+      servoCmd('r',rArmJoyPos,DSD);
+      break;
+    
+    case '8'://fArm向上
+      Serial.println("Recive Command:Front Arm Up");
+      fArmJoyPos = fArm.read() + moveStep;
+      servoCmd('f',fArmJoyPos,DSD);
+      break;
+
+    case '5'://fArm向下
+      Serial.println("Recive Command:Front Arm Down");
+      fArmJoyPos = fArm.read() - moveStep;
+      servoCmd('f',fArmJoyPos,DSD);
+      break;
+
+    case '4'://claw关闭
+      Serial.println("Recieve Command:Claw Close Down");
+      clawJoyPos = claw.read() + moveStep;
+      servoCmd('c',clawJoyPos,DSD);
+      break;
+
+    case '6'://claw打开
+      Serial.println("Recieve Command:Claw Open Up");
+      clawJoyPos = claw.read() - moveStep;
+      servoCmd('c',clawJoyPos,DSD);
+      break;
+
+    case 'm':
+      mode = 1;
+      Serial.println("Command:Switch to Instruction Mode.");
+      break;
+
+    case 'o':
+      reportStatus();
+      break;
+    
+    case 'i':
+      armIniPos();
+      break;
+    
+    default:
+      Serial.println("Unknown Command.");
+  }
+}
+
+void servoCmd(char servoName,int toPos,int servoDelay)
+{
+  Servo servotogo;//创建对象，方便控制
+
+  //串口监视器输出接收指令信息
+  Serial. println("");
+  Serial. print ("+Command: Servo ");
+  Serial. print (servoName) :
+  Serial. print(" to");
+  Serial. print (toPos);
+  Serial. print(" at servoDelay value "):
+  Serial. print (servoDelay)]
+  Serial. println(".");
+  Serial. println("");
+
+  int fromPos;//储存电机初始运动角度值
+
+  switch(servoName)
+  {
+    case 'b':
+      if(toPos >= baseMin && toPos <= baseMax)//判断命令是否合法
+      {
+        servotogo = base;
+        fromPos = base.read();//获取舵机当前角度值
+        break;
+      }
+      else
+      {
+        Serial.println("+Warning:Base Servo Value Out Of Limit!");//非法命令
+        return;
+      }
+
+    case 'c':
+      if(toPos >= clawMin && toPos <= clawMax)
+      {
+        servotogo = claw;
+        fromPos = claw.read();
+        break;
+      }
+      else
+      {
+        Serial.println("+Warning:Claw Servo Value Out Of Limit!");
+        return;
+      }
+
+    case 'r':
+      if(toPos >= rArmMin && toPos <= rArmMax)
+      {
+        servotogo = rArm;
+        fromPos = rArm.read();
+        break;
+      }
+      else
+      {
+        Serial.println("+Warning:RArm Servo Value Out Of Limit!");
+        return;
+      }
+    
+    case 'f':
+      if(toPos >= fArmMin && toPos <= fArmMax)
+      {
+        servotogo = fArm;
+        fromPos = fArm.read();
+        break;
+      }
+      else
+      {
+        Serial.println("+Warning:FArm Servo Value Out Of Limit!");
+        return;
+      }
+  }
+
+  if(fromPos <= toPos)//判断舵机转动方向
+  {
+    for(int i = fromPos;i <= toPos;i++)
+    {
+      servotogo.write(i);//转动舵机
+      delay(servoDelay);
+    }
+  }
+  else
+  {
+    for(int i=fromPos;i >= toPos;i--)
+    {
+      servotogo.write(i);
+      delay(servoDelay);
+    }
+  }
+}
+
+void reportStatus()
+{
+  Serial. println(""):
+  Serial. println("")
+  Serial. println("+ Robot-Arm Status Report +");
+  Serial. print("Claw Position: "); Serial. println(claw.read());
+  Serial. print("Base Position: "); Serial. println (base.read());
+  Serial. print ("Rear Arm Position:"); Serial. println(rArm.read());
+  Serial. print ("Front Arm Position:"); Serial. println(fArm.read()):
+  Serial.println("+++++++++++++++++++++++++++++++++++++++++++");
+  Serial.println("");
+}
+
+void armIniPos ()
+{
+  Serial. println("+Command: Restore Initial Position.");
+
+  int robotIniPosArray[4] [3] = {
+  {'b', 90, DSD},
+  {'r', 90, DSD},
+  {'f', 90, DSD},
+  {'c', 90, DSD}
+  };
+
+  for(int i=0;i<4;i++)
+  {
+    servoCmd(robotIniPosArray[i][0],robotIniPosArray[i][1],robotIniPosArray[i][2];
+      delay(200);
+  }
+}
+
+```
 
