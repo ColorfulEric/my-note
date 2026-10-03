@@ -593,3 +593,58 @@ void armIniPos ()
 |----|------|------|
 |左右 | A0 | A2 |
 |上下 | A1 | A3 |
+
+### 新函数
+
+**Serial.readStringUntil('\n')**
+
+**作用**：从串口读数据，直到遇到指定字符为止。
+
+```cpp
+cpp
+String cmd = Serial.readStringUntil('\n');
+```
+
+**indexOf()**
+
+**作用**：查找某个字符或字符串第一次出现的位置。
+
+```cpp
+cpp
+int index = cmd.indexOf('x');
+```
+
+**substring(开始, 结束)**
+
+**作用**：从字符串里切出一段。
+
+```cpp
+cpp
+string num = cmd.substring(1, 3);
+```
+
+**toInt()**
+
+**作用**：把字符串变成整数。
+
+```cpp
+cpp
+int x = "10".toInt();
+```
+
+**getValue()**
+
+**作用**：把上面几步打包，专门用来从 "x10,y30,z20" 里取某个字母对应的数字。
+
+```cpp
+cpp
+int getValue(String data, char key) {
+  int index = data.indexOf(key);          // 找 key 的位置
+  if (index == -1) return -1;             // 找不到就返回 -1
+
+  int end = data.indexOf(',', index);     // 找 key 后面第一个逗号
+  if (end == -1) end = data.length();     // 如果没有逗号，就到字符串末尾
+
+  return data.substring(index + 1, end).toInt();  // 切出数字并转成整数
+}
+```
