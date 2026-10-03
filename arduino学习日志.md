@@ -648,3 +648,12 @@ int getValue(String data, char key) {
   return data.substring(index + 1, end).toInt();  // 切出数字并转成整数
 }
 ```
+
+### String类
+
+在arduino中，无需引用头文件<string>,只需String创建一个对象即可。
+
+```cpp
+cpp
+String a = "a";
+```
